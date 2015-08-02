@@ -46,8 +46,7 @@ PROCESS_INFORMATION StartChild(const char* cmdline) {
 	SetLastError(0);
 	code = CreateProcess(NULL, (char*)cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 	if (code == 0) {
-		ShowLastError(cmdline);
-		// ShowLastError("Could not start console");
+		ShowLastError("Could not start the shell");
 		return pi;
 	}
 
@@ -60,12 +59,7 @@ static int SetEnv(const char* msystem) {
 	const char* err;
 	const char prefix[] = "MSYSTEM=";
 
-	env = (char*)malloc(strlen(prefix) + strlen(msystem) + 1);
-	if (env == NULL) {
-		ShowError("Could not allocate memory", "", errno);
-		return 0;
-	}
-
+	env = (char*)alloca(strlen(prefix) + strlen(msystem) + 1);
 	strcpy(env, prefix);
 	strcat(env, msystem);
 
@@ -73,11 +67,8 @@ static int SetEnv(const char* msystem) {
 	if (code != 0) {
 		err = strerror(errno);
 		ShowError("Could not set MSYSTEM", err, errno);
-		free(env);
 		return 0;
 	}
-
-	free(env);
 
 	return 1;
 }
@@ -155,7 +146,7 @@ int main(int argc, char* argv[]) {
 	}
 	mbstowcs(msysdirW, msysdirA, sizeof(msysdirW) / sizeof(msysdirW[0]));
 
-	cmdline = (char*)malloc(strlen(msysdirA) + strlen(cmd) + 1);
+	cmdline = (char*)alloca(strlen(msysdirA) + strlen(cmd) + 1);
 	strcpy(cmdline, msysdirA);
 	strcat(cmdline, cmd);
 
