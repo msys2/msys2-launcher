@@ -136,6 +136,7 @@ int main(int argc, char* argv[]) {
 	size_t buflen;
 	wchar_t* buf;
 	wchar_t msysdir[PATH_MAX], exepath[PATH_MAX];
+	int delay = 10;
 
 	UNUSED(argc);
 	UNUSED(argv);
@@ -172,9 +173,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	while (true) {
-		Sleep(100);
+		Sleep(delay);
 		window = find_main_window(GetProcessId(child.hProcess));
 		if (!window) {
+			delay *= 2;
+			if (delay > 60000) {
+				return __LINE__;
+			}
 			continue;
 		}
 
