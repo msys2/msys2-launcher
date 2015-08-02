@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
 	}
 	wcscpy(msysdir, exepath);
 	if (wcsrchr(msysdir, L'/') != NULL) {
-		wcsrchr(msysdir, L'/')[1] = L'\0';
+		wcsrchr(msysdir, L'/')[0] = L'\0';
 	}
 	buflen = wcslen(msysdir) + 1000;
 	buf = (wchar_t*)alloca(buflen * sizeof(wchar_t));
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
 		return __LINE__;
 	}
 
-	res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i /msys2.ico /usr/bin/bash --login -i", msysdir);
+	res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' /usr/bin/bash --login -i", msysdir, exepath);
 	if (res < 0) {
 		return __LINE__;
 	}
@@ -188,12 +188,12 @@ int main(int argc, char* argv[]) {
 			return __LINE__;
 		}
 
-		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_ID, L"MSYS2.Shell." STRINGIFY_W(MSYSTEM) L".2");
+		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_ID, L"MSYS2.Shell." STRINGIFY_W(MSYSTEM) L".7");
 		if (FAILED(hr)) {
 			return __LINE__;
 		}
 
-		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_RelaunchDisplayNameResource, L"MSYS2/" STRINGIFY_W(MSYSTEM) L" shell");
+		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_RelaunchDisplayNameResource, L"MSYS2 " STRINGIFY_W(MSYSTEM) L" shell");
 		if (FAILED(hr)) {
 			return __LINE__;
 		}
