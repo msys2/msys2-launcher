@@ -79,6 +79,7 @@ int wmain(int argc, wchar_t* argv[]) {
 	int res;
 	size_t buflen;
 	wchar_t* buf;
+	wchar_t* args;
 	wchar_t msysdir[PATH_MAX], exepath[PATH_MAX];
 
 	UNUSED(argc);
@@ -103,6 +104,16 @@ int wmain(int argc, wchar_t* argv[]) {
 		return __LINE__;
 	}
 
+	// can break, but hopefully won't for most use cases
+	args = GetCommandLine();
+	if (args[0] == '"') {
+		args++;
+	}
+	args += wcslen(argv[0]);
+	if (args[0] == '"') {
+		args++;
+	}
+
 	res = -1;
 	buf = NULL;
 	buflen = 1024;
@@ -112,7 +123,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login -i", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM));
+		res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM), argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
 		buflen *= 2;
 	}
 	if (res < 0) {
