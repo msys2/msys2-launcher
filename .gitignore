@@ -7,3 +7,7 @@
 /msys2.exe
 /msys2.res
 /msys2.ini
+/pkg/
+/src/
+/*.pkg.tar.xz
+/*.pkg.tar.xz.sig
