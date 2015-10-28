@@ -1,21 +1,30 @@
-all: msys2.exe mingw32.exe mingw64.exe
+all: msys2.exe msys2.ini mingw32.exe mingw32.ini mingw64.exe mingw64.ini
 
 .PHONY: all
 
+msys2.ini: launcher.ini
+	cp -f $^ $@
+	echo MSYSTEM=MSYS>> $@
 msys2.res: launcher.rc msys2.ico
 	windres -O COFF -o $@ $< -DMSYSTEM=MSYS -DICONFILE=msys2.ico
 msys2.exe: launcher.c msys2.res
-	gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^ -DMSYSTEM=MSYS
+	gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^
 	strip $@
 
+mingw32.ini: launcher.ini
+	cp -f $^ $@
+	echo MSYSTEM=MINGW32>> $@
 mingw32.res: launcher.rc mingw32.ico
 	windres -O COFF -o $@ $< -DMSYSTEM=MINGW32 -DICONFILE=mingw32.ico
 mingw32.exe: launcher.c mingw32.res
-	gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^ -DMSYSTEM=MINGW32
+	gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^
 	strip $@
 
+mingw64.ini: launcher.ini
+	cp -f $^ $@
+	echo MSYSTEM=MINGW64>> $@
 mingw64.res: launcher.rc mingw64.ico
 	windres -O COFF -o $@ $< -DMSYSTEM=MINGW64 -DICONFILE=mingw64.ico
 mingw64.exe: launcher.c mingw64.res
-	gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^ -DMSYSTEM=MINGW64
+	gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^
 	strip $@

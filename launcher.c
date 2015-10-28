@@ -37,7 +37,7 @@ static void ShowErrno(const wchar_t* desc) {
 	ShowError(desc, err, errno);
 }
 
-PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
+static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	STARTUPINFOW si;
 	PROCESS_INFORMATION pi;
 	DWORD code;
@@ -56,21 +56,74 @@ PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	return pi;
 }
 
-static int SetEnv(const char* msystem) {
+static wchar_t* SetEnv(wchar_t* conffile) {
 	int code;
-	char* env;
-	const char prefix[] = "MSYSTEM=";
+	size_t buflen;
+	wchar_t* tmp;
+	wchar_t* buf;
+	wchar_t* msystem;
+	FILE* handle;
 
-	env = (char*)alloca(strlen(prefix) + strlen(msystem) + 1);
-	strcpy(env, prefix);
-	strcat(env, msystem);
-	code = putenv(env);
-	if (code != 0) {
-		ShowErrno(L"Could not set MSYSTEM");
-		return 0;
+	msystem = NULL;
+
+	handle = _wfopen(conffile, L"rt");
+	if (handle == NULL) {
+		ShowErrno(L"Could not open configuration file");
+		return msystem;
 	}
 
-	return 1;
+	buflen = 512;
+	buf = (wchar_t*)malloc(buflen * sizeof(wchar_t));
+	*buf = L'\0';
+	while (true) {
+		tmp = fgetws(buf + wcslen(buf), buflen - wcslen(buf), handle);
+		if (tmp == NULL && !feof(handle)) {
+			ShowErrno(L"Could not read from configuration file");
+			return NULL;
+		}
+
+		tmp = buf + wcslen(buf) - 1;
+		if (!feof(handle) && *tmp != L'\n') {
+			buflen *= 2;
+			buf = (wchar_t*)realloc(buf, buflen * sizeof(wchar_t));
+			continue;
+		}
+		if (!feof(handle)) {
+			*tmp = L'\0';
+		}
+
+		if (*buf != L'\0' && *buf != L'#') {
+			tmp = wcschr(buf, L'=');
+			if (tmp != NULL) {
+				*tmp = L'\0';
+				if (0 == wcscmp(L"MSYSTEM", buf)) {
+					msystem = _wcsdup(buf);
+					if (msystem == NULL) {
+						ShowError(L"Could not duplicate string", buf, 0);
+						return NULL;
+					}
+				}
+				code = SetEnvironmentVariable(buf, tmp + 1);
+				if (code == 0) {
+					ShowLastError(L"Could not set environment variable");
+				}
+			} else {
+				ShowError(L"Could not parse environment line", buf, 0);
+			}
+		}
+
+		*buf = L'\0';
+		if (feof(handle)) {
+			break;
+		}
+	}
+
+	code = fclose(handle);
+	if (code != 0) {
+		ShowErrno(L"Could not close configuration file");
+	}
+
+	return msystem;
 }
 
 int wmain(int argc, wchar_t* argv[]) {
@@ -79,8 +132,12 @@ int wmain(int argc, wchar_t* argv[]) {
 	int res;
 	size_t buflen;
 	wchar_t* buf;
+	wchar_t* tmp;
 	wchar_t* args;
-	wchar_t msysdir[PATH_MAX], exepath[PATH_MAX];
+	wchar_t* msystem;
+	wchar_t msysdir[PATH_MAX];
+	wchar_t exepath[PATH_MAX];
+	wchar_t confpath[PATH_MAX];
 
 	UNUSED(argc);
 	UNUSED(argv);
@@ -91,16 +148,37 @@ int wmain(int argc, wchar_t* argv[]) {
 		return __LINE__;
 	}
 
-	while (wcschr(exepath, L'\\') != NULL) {
-		wcschr(exepath, L'\\')[0] = L'/';
-	}
-	wcscpy(msysdir, exepath);
-	if (wcsrchr(msysdir, L'/') != NULL) {
-		wcsrchr(msysdir, L'/')[0] = L'\0';
+	tmp = exepath;
+	while (true) {
+		tmp = wcschr(tmp, L'\\');
+		if (tmp == NULL) {
+			break;
+		}
+		*tmp = L'/';
 	}
 
-	code = SetEnv(STRINGIFY_A(MSYSTEM));
-	if (code == 0) {
+	wcscpy(msysdir, exepath);
+	tmp = wcsrchr(msysdir, L'/');
+	if (tmp == NULL) {
+		ShowError(L"Could not find root directory", msysdir, 0);
+		return __LINE__;
+	}
+	*tmp = L'\0';
+
+	wcscpy(confpath, exepath);
+	tmp = confpath + wcslen(confpath) - 4;
+	if (0 != wcsicmp(L".exe", tmp)) {
+		ShowError(L"Could not find configuration file", confpath, 0);
+		return __LINE__;
+	}
+	*tmp++ = L'.';
+	*tmp++ = L'i';
+	*tmp++ = L'n';
+	*tmp++ = L'i';
+
+	msystem = SetEnv(confpath);
+	if (msystem == NULL) {
+		ShowError(L"Did not find the MSYSTEM variable", confpath, 0);
 		return __LINE__;
 	}
 
