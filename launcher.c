@@ -30,6 +30,13 @@ static void ShowLastError(const wchar_t* desc) {
 	LocalFree(err);
 }
 
+static void ShowErrno(const wchar_t* desc) {
+	wchar_t* err;
+
+	err = _wcserror(errno);
+	ShowError(desc, err, errno);
+}
+
 PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	STARTUPINFOW si;
 	PROCESS_INFORMATION pi;
@@ -42,6 +49,7 @@ PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	code = CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 	if (code == 0) {
 		ShowLastError(L"Could not start the shell");
+		ShowError(L"The command was", cmdline, 0);
 		return pi;
 	}
 
@@ -51,7 +59,6 @@ PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 static int SetEnv(const char* msystem) {
 	int code;
 	char* env;
-	const wchar_t* err;
 	const char prefix[] = "MSYSTEM=";
 
 	env = (char*)alloca(strlen(prefix) + strlen(msystem) + 1);
@@ -59,8 +66,7 @@ static int SetEnv(const char* msystem) {
 	strcat(env, msystem);
 	code = putenv(env);
 	if (code != 0) {
-		err = _wcserror(errno);
-		ShowError(L"Could not set MSYSTEM", err, errno);
+		ShowErrno(L"Could not set MSYSTEM");
 		return 0;
 	}
 
@@ -91,16 +97,26 @@ int wmain(int argc, wchar_t* argv[]) {
 	if (wcsrchr(msysdir, L'/') != NULL) {
 		wcsrchr(msysdir, L'/')[0] = L'\0';
 	}
-	buflen = wcslen(msysdir) + 1000;
-	buf = (wchar_t*)alloca(buflen * sizeof(wchar_t));
 
 	code = SetEnv(STRINGIFY_A(MSYSTEM));
 	if (code == 0) {
 		return __LINE__;
 	}
 
-	res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login -i", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM));
+	res = -1;
+	buf = NULL;
+	buflen = 1024;
+	while (res < 0 && buflen < 8192) {
+		buf = (wchar_t*)realloc(buf, buflen * sizeof(wchar_t));
+		if (buf == NULL) {
+			ShowError(L"Could not allocate memory", L"", 0);
+			return __LINE__;
+		}
+		res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login -i", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM));
+		buflen *= 2;
+	}
 	if (res < 0) {
+		ShowErrno(L"Could not write to buffer");
 		return __LINE__;
 	}
 
@@ -108,6 +124,9 @@ int wmain(int argc, wchar_t* argv[]) {
 	if (child.hProcess == NULL) {
 		return __LINE__;
 	}
+
+	free(buf);
+	buf = NULL;
 
 	return 0;
 }
