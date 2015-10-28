@@ -1,15 +1,15 @@
 #include "macros.h"
 
 1 VERSIONINFO
-FILEVERSION     0,1,0,0
+FILEVERSION     0,2,0,0
 BEGIN
   BLOCK "StringFileInfo"
   BEGIN
     BLOCK "040904E4"
     BEGIN
       VALUE "ProductName", "MSYS2"
-      VALUE "FileDescription", "MSYS2/" STRINGIFY_A(MSYSTEM) " shell launcher"
-      VALUE "FileVersion", "0.1"
+      VALUE "FileDescription", "MSYS2 " STRINGIFY_A(MSYSTEM) " shell launcher"
+      VALUE "FileVersion", "0.2"
     END
   END
 
