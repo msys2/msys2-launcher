@@ -128,8 +128,7 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 
 int wmain(int argc, wchar_t* argv[]) {
 	PROCESS_INFORMATION child;
-	DWORD code;
-	int res;
+	int code;
 	size_t buflen;
 	wchar_t* buf;
 	wchar_t* tmp;
@@ -176,10 +175,22 @@ int wmain(int argc, wchar_t* argv[]) {
 	*tmp++ = L'n';
 	*tmp++ = L'i';
 
+	if (argc > 1) {
+		code = SetEnvironmentVariable(L"CHERE_INVOKING", L"1");
+		if (code == 0) {
+			ShowLastError(L"Could not set environment variable");
+		}
+	}
+
 	msystem = SetEnv(confpath);
 	if (msystem == NULL) {
 		ShowError(L"Did not find the MSYSTEM variable", confpath, 0);
 		return __LINE__;
+	}
+
+	code = SetEnvironmentVariable(L"MSYSCON", L"mintty.exe");
+	if (code == 0) {
+		ShowLastError(L"Could not set environment variable");
 	}
 
 	// can break, but hopefully won't for most use cases
@@ -192,19 +203,19 @@ int wmain(int argc, wchar_t* argv[]) {
 		args++;
 	}
 
-	res = -1;
+	code = -1;
 	buf = NULL;
 	buflen = 1024;
-	while (res < 0 && buflen < 8192) {
+	while (code < 0 && buflen < 8192) {
 		buf = (wchar_t*)realloc(buf, buflen * sizeof(wchar_t));
 		if (buf == NULL) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM), argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
+		code = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM), argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
 		buflen *= 2;
 	}
-	if (res < 0) {
+	if (code < 0) {
 		ShowErrno(L"Could not write to buffer");
 		return __LINE__;
 	}
