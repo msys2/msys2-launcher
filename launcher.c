@@ -11,7 +11,7 @@
 #include "macros.h"
 
 // if any of the properties change, it's best to use a brand new AppID
-#define APPID_REVISION 8
+#define APPID_REVISION 9
 
 static void ShowError(const wchar_t* desc, const wchar_t* err, const long code) {
 	wchar_t msg[1024];
@@ -97,7 +97,7 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 			if (tmp != NULL) {
 				*tmp = L'\0';
 				if (0 == wcscmp(L"MSYSTEM", buf)) {
-					msystem = _wcsdup(buf);
+					msystem = _wcsdup(tmp + 1);
 					if (msystem == NULL) {
 						ShowError(L"Could not duplicate string", buf, 0);
 						return NULL;
@@ -212,7 +212,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, STRINGIFY_W(MSYSTEM), APPID_REVISION, STRINGIFY_W(MSYSTEM), argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
+		code = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
 		buflen *= 2;
 	}
 	if (code < 0) {
