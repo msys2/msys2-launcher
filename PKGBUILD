@@ -27,9 +27,9 @@ pkgver() {
 }
 
 build() {
-    make PREFIX=/opt/bin/${CARCH}-w64-mingw32-
+  make PREFIX=/opt/bin/${CARCH}-w64-mingw32-
 }
 
 package() {
-    cp {mingw32,mingw64,msys2}.{exe,ini} "${pkgdir}"
+  cp {mingw32,mingw64,msys2}.{exe,ini} "${pkgdir}"
 }
