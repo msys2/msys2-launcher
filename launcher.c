@@ -138,9 +138,6 @@ int wmain(int argc, wchar_t* argv[]) {
 	wchar_t exepath[PATH_MAX];
 	wchar_t confpath[PATH_MAX];
 
-	UNUSED(argc);
-	UNUSED(argv);
-
 	code = GetModuleFileName(NULL, exepath, sizeof(exepath) / sizeof(exepath[0]));
 	if (code == 0) {
 		ShowLastError(L"Could not determine executable path");
@@ -149,15 +146,15 @@ int wmain(int argc, wchar_t* argv[]) {
 
 	tmp = exepath;
 	while (true) {
-		tmp = wcschr(tmp, L'\\');
+		tmp = wcschr(tmp, L'/');
 		if (tmp == NULL) {
 			break;
 		}
-		*tmp = L'/';
+		*tmp = L'\\';
 	}
 
 	wcscpy(msysdir, exepath);
-	tmp = wcsrchr(msysdir, L'/');
+	tmp = wcsrchr(msysdir, L'\\');
 	if (tmp == NULL) {
 		ShowError(L"Could not find root directory", msysdir, 0);
 		return __LINE__;
@@ -195,11 +192,11 @@ int wmain(int argc, wchar_t* argv[]) {
 
 	// can break, but hopefully won't for most use cases
 	args = GetCommandLine();
-	if (args[0] == '"') {
+	if (args[0] == L'"') {
 		args++;
 	}
 	args += wcslen(argv[0]);
-	if (args[0] == '"') {
+	if (args[0] == L'"') {
 		args++;
 	}
 
@@ -212,7 +209,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
+		code = swprintf(buf, buflen, L"%s\\usr\\bin\\mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
 		buflen *= 2;
 	}
 	if (code < 0) {
