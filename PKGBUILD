@@ -1,17 +1,18 @@
 _realname="msys2-launcher"
 pkgname=("${_realname}-git")
-pkgver=0.3.15.551bb17
+pkgver=0.3.17.1a1c586
 pkgrel=1
 pkgdesc="Helper for launching MSYS2 shells"
 arch=('x86_64' 'i686')
 license=('MIT')
+backup=({mingw32,mingw64,msys2}.ini)
 provides=("${_realname}")
 conflicts=("${_realname}")
 depends=("mintty>=2.2.1")
 makedepends=('mingw-w64-cross-gcc')
 source=(launcher.{c,ini,rc} {macros,version}.h Makefile {mingw32,mingw64,msys2}.ico)
-md5sums=('052ba00d62b07adca186d57615b43834'
-         'b7fb06d6faaf530c187b817088228ce6'
+md5sums=('e21db11d21f95aab30966a8c528efd9b'
+         '7ab96cb34fef046e4839e270f9397a32'
          '3a3c9fd8d083716e5efd759641eb4f31'
          '57a40ae9972dac94df0830a1ab480895'
          'fef245f65b6826502b953b81fb397d97'

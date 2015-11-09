@@ -59,8 +59,10 @@ static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 static wchar_t* SetEnv(wchar_t* conffile) {
 	int code;
 	size_t buflen;
+	size_t expandedlen;
 	wchar_t* tmp;
 	wchar_t* buf;
+	wchar_t* expanded;
 	wchar_t* msystem;
 	FILE* handle;
 
@@ -75,6 +77,8 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 	buflen = 512;
 	buf = (wchar_t*)malloc(buflen * sizeof(wchar_t));
 	*buf = L'\0';
+	expandedlen = 2 * buflen;
+	expanded = (wchar_t*)malloc(expandedlen * sizeof(wchar_t));
 	while (true) {
 		tmp = fgetws(buf + wcslen(buf), buflen - wcslen(buf), handle);
 		if (tmp == NULL && !feof(handle)) {
@@ -95,15 +99,26 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 		if (*buf != L'\0' && *buf != L'#') {
 			tmp = wcschr(buf, L'=');
 			if (tmp != NULL) {
-				*tmp = L'\0';
+				*tmp++ = L'\0';
+				while (expandedlen < 32768) {
+					code = ExpandEnvironmentStrings(tmp, expanded, expandedlen);
+					if ((size_t)code <= expandedlen) {
+						break;
+					}
+					expandedlen *= 2;
+					expanded = (wchar_t*)realloc(expanded, expandedlen * sizeof(wchar_t));
+				}
+				if ((*tmp != L'\0' && code == 0) || (size_t)code > expandedlen) {
+					ShowLastError(L"Could not expand string");
+				}
 				if (0 == wcscmp(L"MSYSTEM", buf)) {
-					msystem = _wcsdup(tmp + 1);
+					msystem = _wcsdup(expanded);
 					if (msystem == NULL) {
-						ShowError(L"Could not duplicate string", buf, 0);
+						ShowError(L"Could not duplicate string", expanded, 0);
 						return NULL;
 					}
 				}
-				code = SetEnvironmentVariable(buf, tmp + 1);
+				code = SetEnvironmentVariable(buf, expanded);
 				if (code == 0) {
 					ShowLastError(L"Could not set environment variable");
 				}
