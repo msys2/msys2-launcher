@@ -56,7 +56,7 @@ static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	return pi;
 }
 
-static wchar_t* SetEnv(wchar_t* conffile) {
+static wchar_t* SetEnv(wchar_t* conffile, wchar_t** command) {
 	int code;
 	size_t buflen;
 	size_t expandedlen;
@@ -65,7 +65,9 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 	wchar_t* expanded;
 	wchar_t* msystem;
 	FILE* handle;
+	bool specialvar;
 
+	*command = NULL;
 	msystem = NULL;
 
 	handle = _wfopen(conffile, L"rt");
@@ -97,6 +99,10 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 		}
 
 		if (*buf != L'\0' && *buf != L'#') {
+			specialvar = *buf == L'=';
+			if (specialvar) {
+				++buf;
+			}
 			tmp = wcschr(buf, L'=');
 			if (tmp != NULL) {
 				*tmp++ = L'\0';
@@ -118,9 +124,15 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 						return NULL;
 					}
 				}
-				code = SetEnvironmentVariable(buf, expanded);
-				if (code == 0) {
-					ShowLastError(L"Could not set environment variable");
+				if (specialvar) {
+					if (0 == wcsicmp(L"command", buf)) {
+						*command = _wcsdup(expanded);
+					}
+				} else {
+					code = SetEnvironmentVariable(buf, expanded);
+					if (code == 0) {
+						ShowLastError(L"Could not set environment variable");
+					}
 				}
 			} else {
 				ShowError(L"Could not parse environment line", buf, 0);
@@ -194,7 +206,7 @@ int wmain(int argc, wchar_t* argv[]) {
 		}
 	}
 
-	msystem = SetEnv(confpath);
+	msystem = SetEnv(confpath, &args);
 	if (msystem == NULL) {
 		ShowError(L"Did not find the MSYSTEM variable", confpath, 0);
 		return __LINE__;
@@ -205,14 +217,16 @@ int wmain(int argc, wchar_t* argv[]) {
 		ShowLastError(L"Could not set environment variable");
 	}
 
-	// can break, but hopefully won't for most use cases
-	args = GetCommandLine();
-	if (args[0] == L'"') {
-		args++;
-	}
-	args += wcslen(argv[0]);
-	if (args[0] == L'"') {
-		args++;
+	if (argc > 1) {
+		// can break, but hopefully won't for most use cases
+		args = GetCommandLine();
+		if (*args == L'"') {
+			args++;
+		}
+		args += wcslen(argv[0]);
+		if (*args == L'"') {
+			args++;
+		}
 	}
 
 	code = -1;
@@ -224,7 +238,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%s\\usr\\bin\\mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
+		code = swprintf(buf, buflen, L"%s\\usr\\bin\\mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, args != NULL ? L"-c '$0 \"$@\"'" : L"-i" , args != NULL ? args : L"");
 		buflen *= 2;
 	}
 	if (code < 0) {
