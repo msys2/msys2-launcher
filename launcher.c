@@ -224,7 +224,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%s\\usr\\bin\\mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
+		code = swprintf(buf, buflen, L"%s\\%s -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=%s.Shell.%s.%d' -o 'AppName=%s %s Shell' --store-taskbar-properties -- /usr/bin/bash --login %s %s", msysdir, STRINGIFY_W(SHELLPATH), exepath, exepath, STRINGIFY_W(PRODUCT), msystem, APPID_REVISION, STRINGIFY_W(PRODUCT), msystem, argc == 1 ? L"-i" : L"-c '$0 \"$@\"'", args);
 		buflen *= 2;
 	}
 	if (code < 0) {

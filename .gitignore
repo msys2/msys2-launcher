@@ -7,6 +7,9 @@
 /msys2.exe
 /msys2.res
 /msys2.ini
+/cygwin.exe
+/cygwin.res
+/cygwin.ini
 /pkg/
 /src/
 /*.pkg.tar.xz

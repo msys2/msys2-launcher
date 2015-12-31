@@ -8,8 +8,8 @@ BEGIN
   BEGIN
     BLOCK "040904E4"
     BEGIN
-      VALUE "ProductName", "MSYS2"
-      VALUE "FileDescription", "MSYS2 " STRINGIFY_A(MSYSTEM) " shell launcher"
+      VALUE "ProductName", STRINGIFY_A(PRODUCT)
+      VALUE "FileDescription", STRINGIFY_A(PRODUCT) " " STRINGIFY_A(MSYSTEM) " shell launcher"
       VALUE "FileVersion", STRINGIFY_A(VER_MAJOR) "." STRINGIFY_A(VER_MINOR)
     END
   END
