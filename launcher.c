@@ -1,3 +1,4 @@
+#define _UNICODE
 #define _WIN32_WINNT 0x0601
 #define WIN32_LEAN_AND_MEAN
 #define PSAPI_VERSION 1
@@ -17,25 +18,39 @@
 
 #include "macros.h"
 
-static void ShowError(const char* desc, const char* err, const long code) {
-	char msg[1024];
+// if any of the properties change, it's best to use a brand new AppID
+#define APPID_REVISION 9
 
-	sprintf(msg, "%s. Reason: %s (0x%lx)", desc, err, code);
-	MessageBox(NULL, msg, "Launcher error", MB_ICONEXCLAMATION | MB_OK);
+struct MainWindow {
+	DWORD pid;
+	HWND handle;
+};
+
+static void ShowError(const wchar_t* desc, const wchar_t* err, const long code) {
+	wchar_t msg[1024];
+
+	swprintf(msg, 1024, L"%s. Reason: %s (0x%lx)", desc, err, code);
+	MessageBox(NULL, msg, L"Launcher error", MB_ICONEXCLAMATION | MB_OK);
 }
 
-static void ShowLastError(const char* desc) {
+static void ShowLastError(const wchar_t* desc) {
 	DWORD code;
-	char* err;
+	wchar_t* err;
 
 	code = GetLastError();
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&err, 0, NULL);
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&err, 0, NULL);
 	ShowError(desc, err, code);
 	LocalFree(err);
 }
 
+static void ShowErrno(const wchar_t* desc) {
+	wchar_t* err;
 
-PROCESS_INFORMATION StartChild(const wchar_t* cmdline) {
+	err = _wcserror(errno);
+	ShowError(desc, err, errno);
+}
+
+static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	STARTUPINFOW si;
 	PROCESS_INFORMATION pi;
 	DWORD code;
@@ -44,68 +59,123 @@ PROCESS_INFORMATION StartChild(const wchar_t* cmdline) {
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
 	SetLastError(0);
-	code = CreateProcessW(NULL, (wchar_t*)cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+	code = CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 	if (code == 0) {
-		ShowLastError("Could not start the shell");
+		ShowLastError(L"Could not start the shell");
+		ShowError(L"The command was", cmdline, 0);
 		return pi;
 	}
 
 	return pi;
 }
 
-static int SetEnv(const char* msystem) {
+static wchar_t* SetEnv(wchar_t* conffile) {
 	int code;
-	char* env;
-	const char* err;
-	const char prefix[] = "MSYSTEM=";
+	size_t buflen;
+	size_t expandedlen;
+	wchar_t* tmp;
+	wchar_t* buf;
+	wchar_t* expanded;
+	wchar_t* msystem;
+	FILE* handle;
 
-	env = (char*)alloca(strlen(prefix) + strlen(msystem) + 1);
-	strcpy(env, prefix);
-	strcat(env, msystem);
-	code = putenv(env);
-	if (code != 0) {
-		err = strerror(errno);
-		ShowError("Could not set MSYSTEM", err, errno);
-		return 0;
+	msystem = NULL;
+
+	handle = _wfopen(conffile, L"rt");
+	if (handle == NULL) {
+		ShowErrno(L"Could not open configuration file");
+		return msystem;
 	}
 
-	return 1;
+	buflen = 512;
+	buf = (wchar_t*)malloc(buflen * sizeof(wchar_t));
+	*buf = L'\0';
+	expandedlen = 2 * buflen;
+	expanded = (wchar_t*)malloc(expandedlen * sizeof(wchar_t));
+	while (true) {
+		tmp = fgetws(buf + wcslen(buf), buflen - wcslen(buf), handle);
+		if (tmp == NULL && !feof(handle)) {
+			ShowErrno(L"Could not read from configuration file");
+			return NULL;
+		}
+
+		tmp = buf + wcslen(buf) - 1;
+		if (!feof(handle) && *tmp != L'\n') {
+			buflen *= 2;
+			buf = (wchar_t*)realloc(buf, buflen * sizeof(wchar_t));
+			continue;
+		}
+		if (!feof(handle)) {
+			*tmp = L'\0';
+		}
+
+		if (*buf != L'\0' && *buf != L'#') {
+			tmp = wcschr(buf, L'=');
+			if (tmp != NULL) {
+				*tmp++ = L'\0';
+				while (expandedlen < 32768) {
+					code = ExpandEnvironmentStrings(tmp, expanded, expandedlen);
+					if ((size_t)code <= expandedlen) {
+						break;
+					}
+					expandedlen *= 2;
+					expanded = (wchar_t*)realloc(expanded, expandedlen * sizeof(wchar_t));
+				}
+				if ((*tmp != L'\0' && code == 0) || (size_t)code > expandedlen) {
+					ShowLastError(L"Could not expand string");
+				}
+				if (0 == wcscmp(L"MSYSTEM", buf)) {
+					msystem = _wcsdup(expanded);
+					if (msystem == NULL) {
+						ShowError(L"Could not duplicate string", expanded, 0);
+						return NULL;
+					}
+				}
+				code = SetEnvironmentVariable(buf, expanded);
+				if (code == 0) {
+					ShowLastError(L"Could not set environment variable");
+				}
+			} else {
+				ShowError(L"Could not parse environment line", buf, 0);
+			}
+		}
+
+		*buf = L'\0';
+		if (feof(handle)) {
+			break;
+		}
+	}
+
+	code = fclose(handle);
+	if (code != 0) {
+		ShowErrno(L"Could not close configuration file");
+	}
+
+	return msystem;
 }
 
-struct handle_data {
-	unsigned long process_id;
-	HWND best_handle;
-};
-
-
-BOOL is_main_window(HWND handle)
-{
+static bool IsMainWindow(HWND handle) {
 	return GetWindow(handle, GW_OWNER) == (HWND)0 && IsWindowVisible(handle);
 }
 
-
-BOOL CALLBACK enum_windows_callback(HWND handle, LPARAM lParam)
-{
-	struct handle_data* data = (struct handle_data*)lParam;
-	unsigned long process_id = 0;
-	GetWindowThreadProcessId(handle, &process_id);
-	if (data->process_id != process_id || !is_main_window(handle)) {
+static BOOL CALLBACK CheckWindow(HWND handle, LPARAM lParam) {
+	struct MainWindow* data = (struct MainWindow*)lParam;
+	DWORD pid = 0;
+	GetWindowThreadProcessId(handle, &pid);
+	if (data->pid != pid || !IsMainWindow(handle)) {
 		return TRUE;
 	}
-	data->best_handle = handle;
+	data->handle = handle;
 	return FALSE;
 }
 
-HWND find_main_window(unsigned long process_id)
-{
-	struct handle_data data;
-	data.process_id = process_id;
-	data.best_handle = 0;
-	EnumWindows(enum_windows_callback, (LPARAM)&data);
-	return data.best_handle;
+static HWND FindMainWindow(DWORD pid) {
+	struct MainWindow data;
+	data.pid = pid;
+	data.handle = 0;
+	EnumWindows(CheckWindow, (LPARAM)&data);
+	return data.handle;
 }
-
-
 
 HRESULT SetAppUserModelProperty(IPropertyStore* store, const PROPERTYKEY* key, LPCWSTR value) {
 	PROPVARIANT propVariant;
@@ -125,45 +195,116 @@ HRESULT SetAppUserModelProperty(IPropertyStore* store, const PROPERTYKEY* key, L
 	return 0;
 }
 
-
-int main(int argc, char* argv[]) {
+int wmain(int argc, wchar_t* argv[]) {
 	PROCESS_INFORMATION child;
-	DWORD code;
-	int res;
+	int code;
+	int delay = 10;
 	HWND window;
 	IPropertyStore* store;
 	HRESULT hr;
 	size_t buflen;
 	wchar_t* buf;
-	wchar_t msysdir[PATH_MAX], exepath[PATH_MAX];
-	int delay = 10;
+	wchar_t* tmp;
+	wchar_t* args;
+	wchar_t* msystem;
+	wchar_t msysdir[PATH_MAX];
+	wchar_t exepath[PATH_MAX];
+	wchar_t confpath[PATH_MAX];
+	wchar_t wdpath[PATH_MAX];
+	const size_t proplen = 100;
+	wchar_t prop[proplen];
 
-	UNUSED(argc);
-	UNUSED(argv);
-
-	code = GetModuleFileNameW(NULL, exepath, sizeof(exepath) / sizeof(exepath[0]));
-	if (code == 0) {
-		ShowLastError("Could not determine executable path");
+	code = GetCurrentDirectory(PATH_MAX, wdpath);
+	if (code == 0 || code > PATH_MAX) {
+		ShowErrno(L"Could not determine working directory");
 		return __LINE__;
 	}
 
-	while (wcschr(exepath, L'\\') != NULL) {
-		wcschr(exepath, L'\\')[0] = L'/';
+	tmp = wdpath;
+	while (true) {
+		tmp = wcschr(tmp, L'\\');
+		if (tmp == NULL) {
+			break;
+		}
+		*tmp = L'/';
 	}
+
+	code = GetModuleFileName(NULL, exepath, sizeof(exepath) / sizeof(exepath[0]));
+	if (code == 0) {
+		ShowLastError(L"Could not determine executable path");
+		return __LINE__;
+	}
+
+	tmp = exepath;
+	while (true) {
+		tmp = wcschr(tmp, L'/');
+		if (tmp == NULL) {
+			break;
+		}
+		*tmp = L'\\';
+	}
+
 	wcscpy(msysdir, exepath);
-	if (wcsrchr(msysdir, L'/') != NULL) {
-		wcsrchr(msysdir, L'/')[0] = L'\0';
+	tmp = wcsrchr(msysdir, L'\\');
+	if (tmp == NULL) {
+		ShowError(L"Could not find root directory", msysdir, 0);
+		return __LINE__;
 	}
-	buflen = wcslen(msysdir) + 1000;
-	buf = (wchar_t*)alloca(buflen * sizeof(wchar_t));
+	*tmp = L'\0';
 
-	code = SetEnv(STRINGIFY_A(MSYSTEM));
-	if (code == 0) {
+	wcscpy(confpath, exepath);
+	tmp = confpath + wcslen(confpath) - 4;
+	if (0 != wcsicmp(L".exe", tmp)) {
+		ShowError(L"Could not find configuration file", confpath, 0);
+		return __LINE__;
+	}
+	*tmp++ = L'.';
+	*tmp++ = L'i';
+	*tmp++ = L'n';
+	*tmp++ = L'i';
+
+	if (argc > 1) {
+		code = SetEnvironmentVariable(L"CHERE_INVOKING", L"1");
+		if (code == 0) {
+			ShowLastError(L"Could not set environment variable");
+		}
+	}
+
+	msystem = SetEnv(confpath);
+	if (msystem == NULL) {
+		ShowError(L"Did not find the MSYSTEM variable", confpath, 0);
 		return __LINE__;
 	}
 
-	res = swprintf(buf, buflen, L"%s/usr/bin/mintty.exe -i '%s' /usr/bin/bash --login -i", msysdir, exepath);
-	if (res < 0) {
+	code = SetEnvironmentVariable(L"MSYSCON", L"mintty.exe");
+	if (code == 0) {
+		ShowLastError(L"Could not set environment variable");
+	}
+
+	// can break, but hopefully won't for most use cases
+	args = GetCommandLine();
+	if (args[0] == L'"') {
+		args++;
+	}
+	args += wcslen(argv[0]);
+	if (args[0] == L'"') {
+		args++;
+	}
+
+	code = -1;
+	buf = NULL;
+	buflen = 1024;
+	while (code < 0 && buflen < 8192) {
+		buf = (wchar_t*)realloc(buf, buflen * sizeof(wchar_t));
+		if (buf == NULL) {
+			ShowError(L"Could not allocate memory", L"", 0);
+			return __LINE__;
+		}
+		code = swprintf(buf, buflen, L"%s\\bin\\mintty.exe -i '%s' -- /bin/bash --login -c 'cd \\'%s\\'; exec %s'", msysdir, exepath, wdpath, argc == 1 ? L"/bin/bash -i" : args);
+		buflen *= 2;
+	}
+	if (code < 0) {
+		ShowErrno(L"Could not write to buffer");
 		return __LINE__;
 	}
 
@@ -172,9 +313,12 @@ int main(int argc, char* argv[]) {
 		return __LINE__;
 	}
 
+	free(buf);
+	buf = NULL;
+
 	while (true) {
 		Sleep(delay);
-		window = find_main_window(GetProcessId(child.hProcess));
+		window = FindMainWindow(GetProcessId(child.hProcess));
 		if (!window) {
 			delay *= 2;
 			if (delay > 60000) {
@@ -188,12 +332,22 @@ int main(int argc, char* argv[]) {
 			return __LINE__;
 		}
 
-		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_ID, L"MSYS2.Shell." STRINGIFY_W(MSYSTEM) L".7");
+		code = swprintf(prop, proplen, L"Msys.Shell.%s.%d", msystem, APPID_REVISION);
+		if (code < 0) {
+			ShowErrno(L"Could not write to buffer");
+			return __LINE__;
+		}
+		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_ID, prop);
 		if (FAILED(hr)) {
 			return __LINE__;
 		}
 
-		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_RelaunchDisplayNameResource, L"MSYS2 " STRINGIFY_W(MSYSTEM) L" shell");
+		code = swprintf(prop, proplen, L"Msys %s Shell", msystem);
+		if (code < 0) {
+			ShowErrno(L"Could not write to buffer");
+			return __LINE__;
+		}
+		hr = SetAppUserModelProperty(store, &PKEY_AppUserModel_RelaunchDisplayNameResource, prop);
 		if (FAILED(hr)) {
 			return __LINE__;
 		}

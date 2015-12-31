@@ -1,19 +1,22 @@
-all: msys2.exe mingw32.exe mingw64.exe
+PREFIX=
 
-msys2.res: launcher.rc msys2.ico
-	windres -O COFF -o $@ $< -DMSYSTEM=MSYS -DICONFILE=msys2.ico
-msys2.exe: launcher.c msys2.res
-	gcc -Wall -Wextra -static -mwindows -o $@ $^ -luuid -lshlwapi -lpsapi -DMSYSTEM=MSYS
-	strip $@
+msys: msys.exe msys.ini mingw.exe mingw.ini
+all: msys
 
-mingw32.res: launcher.rc mingw32.ico
-	windres -O COFF -o $@ $< -DMSYSTEM=MINGW32 -DICONFILE=mingw32.ico
-mingw32.exe: launcher.c mingw32.res
-	gcc -Wall -Wextra -static -mwindows -o $@ $^ -luuid -lshlwapi -lpsapi -DMSYSTEM=MINGW32
-	strip $@
+.PHONY: all msys
 
-mingw64.res: launcher.rc mingw64.ico
-	windres -O COFF -o $@ $< -DMSYSTEM=MINGW64 -DICONFILE=mingw64.ico
-mingw64.exe: launcher.c mingw64.res
-	gcc -Wall -Wextra -static -mwindows -o $@ $^ -luuid -lshlwapi -lpsapi -DMSYSTEM=MINGW64
-	strip $@
+msys.ini: launcher.ini
+	cp -f $^ $@
+	echo MSYSTEM=MSYS>> $@
+msys.res: launcher.rc msys.ico
+	$(PREFIX)windres -O COFF -o $@ $< -DMSYSTEM=MSYS -DICONFILE=msys.ico
+msys.exe: launcher.c msys.res
+	$(PREFIX)gcc -std=c11 -Wall -Wextra -Werror -municode -mwindows -o $@ $^ -luuid -lshlwapi -lpsapi
+
+mingw.ini: launcher.ini
+	cp -f $^ $@
+	echo MSYSTEM=MINGW32>> $@
+mingw.res: launcher.rc mingw.ico
+	$(PREFIX)windres -O COFF -o $@ $< -DMSYSTEM=MINGW32 -DICONFILE=mingw.ico
+mingw.exe: launcher.c mingw.res
+	$(PREFIX)gcc -std=c11 -Wall -Wextra -Werror -municode -mwindows -o $@ $^ -luuid -lshlwapi -lpsapi

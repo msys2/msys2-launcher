@@ -1,9 +1,9 @@
-MSYS2 launcher
+Msys launcher
 ==============
 
-A helper for launching MSYS2 shells. Features blink-less launching and correct taskbar/start pinning.
+A helper for launching Msys shells, adapted from the MSYS2 launcher. Features almost blink-less launching and correct taskbar/start pinning.
 
 Installation
 ------------
 
-Just `make` and put the executables inside your MSYS2 root.
+Just `make` and put the executables inside your Msys root.
