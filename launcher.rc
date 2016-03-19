@@ -4,20 +4,20 @@
 1 VERSIONINFO
 FILEVERSION     VER_MAJOR,VER_MINOR,0,0
 BEGIN
-  BLOCK "StringFileInfo"
-  BEGIN
-    BLOCK "040904E4"
-    BEGIN
-      VALUE "ProductName", "MSYS2"
-      VALUE "FileDescription", "MSYS2 " STRINGIFY_A(MSYSTEM) " shell launcher"
-      VALUE "FileVersion", STRINGIFY_A(VER_MAJOR) "." STRINGIFY_A(VER_MINOR)
-    END
-  END
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904E4"
+		BEGIN
+			VALUE "ProductName", "MSYS2"
+			VALUE "FileDescription", "MSYS2 " STRINGIFY_A(MSYSTEM) " shell launcher"
+			VALUE "FileVersion", STRINGIFY_A(VER_MAJOR) "." STRINGIFY_A(VER_MINOR)
+		END
+	END
 
-  BLOCK "VarFileInfo"
-  BEGIN
-    VALUE "Translation", 0x409, 1252
-  END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1252
+	END
 END
 
 id ICON STRINGIFY_A(ICONFILE)

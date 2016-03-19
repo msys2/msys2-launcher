@@ -1,4 +1,4 @@
 root = true
 
-[*.{c,h}]
+[*.{c,h,rc}]
 indent_style = tab
