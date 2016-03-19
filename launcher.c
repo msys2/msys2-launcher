@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <wchar.h>
+int _CRT_glob = 0;
 
 #include "macros.h"
 
