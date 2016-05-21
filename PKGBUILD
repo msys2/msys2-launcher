@@ -1,6 +1,6 @@
 _realname="msys2-launcher"
 pkgname=("${_realname}-git")
-pkgver=0.3.27.b71e7e3
+pkgver=0.3
 pkgrel=1
 pkgdesc="Helper for launching MSYS2 shells"
 arch=('x86_64' 'i686')
@@ -12,7 +12,7 @@ depends=("mintty>=2.2.1")
 makedepends=('mingw-w64-cross-gcc')
 source=(launcher.{c,ini,rc} {macros,version}.h Makefile {mingw32,mingw64,msys2}.ico)
 sha512sums=('0397204670c5018621c41cca51fe0b00bc5d6f78abe9326b2050f8c59b98334fd0e36826cf55207e4cc9fa51add9def2146ec93a3ba025bf679b15e8909fa710'
-            'e24f084ebd20d1ad7127ccc45799c4269f8ce3ef0fc2acf0edc8672d229d709294c7d27a08686bda85065d862955d0967965314cdffbf523d339c19fd3e20bdf'
+            '5ed8a2e9997d9d2c1e17940292d68542f897e2716b274741d8a3ba7c8f46235c175b7e0a1252a879ba3c79b571504d25de2a8d6b004aedd117d263195bc2b185'
             'cf257f1f5b7fc69a32c63fe5bf5299db078621850b1e12358654d71da7777a94a0668d657c1834be308db099cad9d48a42fa7877ad58dfdbd576248150913a12'
             '6019ca0d67375c1261dda0d54d45fc411b02244c51b71d5c57d2613e9edfb4e8f9000754e5c7d632ed0101005c01cd0a98c3961d5b5f51c94d83eceba4296d35'
             '328c62f85e4f6e017ecadb0cf17a04802dde8dfc664a8e8c4b66713bbbdef6402b1ead63803bdf2ece8f83defc928f5b2ce0bb89904e10b586cec9433e2ab1d7'
