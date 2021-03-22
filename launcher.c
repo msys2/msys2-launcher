@@ -17,7 +17,7 @@ int _CRT_glob = 0;
 static void ShowError(const wchar_t* desc, const wchar_t* err, const long code) {
 	wchar_t msg[1024];
 
-	swprintf(msg, 1024, L"%s. Reason: %s (0x%lx)", desc, err, code);
+	swprintf(msg, 1024, L"%ls. Reason: %ls (0x%lx)", desc, err, code);
 	MessageBox(NULL, msg, L"Launcher error", MB_ICONEXCLAMATION | MB_OK);
 }
 
@@ -225,7 +225,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%s\\usr\\bin\\mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' -t 'MSYS2 %s Shell' --store-taskbar-properties -- %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
+		code = swprintf(buf, buflen, L"%ls\\usr\\bin\\mintty.exe -i '%ls' -o 'AppLaunchCmd=%ls' -o 'AppID=MSYS2.Shell.%ls.%d' -o 'AppName=MSYS2 %ls Shell' -t 'MSYS2 %ls Shell' --store-taskbar-properties -- %ls %ls", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
 		buflen *= 2;
 	}
 	if (code < 0) {
