@@ -32,5 +32,5 @@ build() {
 }
 
 package() {
-  cp {mingw32,mingw64,msys2}.{exe,ini} "${pkgdir}"
+  cp {mingw32,mingw64,ucrt64,clang64,msys2}.{exe,ini} "${pkgdir}"
 }
