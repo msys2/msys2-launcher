@@ -38,7 +38,7 @@ static void ShowErrno(const wchar_t* desc) {
 	ShowError(desc, err, errno);
 }
 
-static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
+static PROCESS_INFORMATION StartChild(wchar_t* cmdline, const wchar_t* cmddir) {
 	STARTUPINFOW si;
 	PROCESS_INFORMATION pi;
 	DWORD code;
@@ -47,7 +47,7 @@ static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
 	SetLastError(0);
-	code = CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+	code = CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, cmddir, &si, &pi);
 	if (code == 0) {
 		ShowLastError(L"Could not start the shell");
 		ShowError(L"The command was", cmdline, 0);
@@ -142,9 +142,19 @@ static wchar_t* SetEnv(wchar_t* conffile) {
 	return msystem;
 }
 
+void FixPathSlash(wchar_t* path) {
+	while (*path) {
+		if (*path == L'/') {
+			*path = L'\\';
+		}
+		++path;
+	}
+}
+
 int wmain(int argc, wchar_t* argv[]) {
 	PROCESS_INFORMATION child;
 	int code;
+	int i;
 	size_t buflen;
 	wchar_t* buf;
 	wchar_t* tmp;
@@ -153,6 +163,22 @@ int wmain(int argc, wchar_t* argv[]) {
 	wchar_t msysdir[PATH_MAX];
 	wchar_t exepath[PATH_MAX];
 	wchar_t confpath[PATH_MAX];
+	wchar_t workdir[PATH_MAX];
+
+	wchar_t* cmdline =
+		L"%s\\usr\\bin\\mintty.exe"
+		L" -i '%s'"
+		L" -o 'AppLaunchCmd=%s'"
+		L" -o 'AppID=MSYS2.Shell.%s.%d'"
+		L" -o 'AppName=MSYS2 %s Shell'"
+		L" -t 'MSYS2 %s Shell'"
+		L" --store-taskbar-properties"
+		L" -- %s %s";
+
+	wchar_t* cmdargs[] = {
+		L"-",
+		L"/usr/bin/sh -lc '\"$@\"' sh"
+	};
 
 	code = GetModuleFileName(NULL, exepath, sizeof(exepath) / sizeof(exepath[0]));
 	if (code == 0) {
@@ -160,14 +186,7 @@ int wmain(int argc, wchar_t* argv[]) {
 		return __LINE__;
 	}
 
-	tmp = exepath;
-	while (true) {
-		tmp = wcschr(tmp, L'/');
-		if (tmp == NULL) {
-			break;
-		}
-		*tmp = L'\\';
-	}
+	FixPathSlash(exepath);
 
 	wcscpy(msysdir, exepath);
 	tmp = wcsrchr(msysdir, L'\\');
@@ -188,13 +207,6 @@ int wmain(int argc, wchar_t* argv[]) {
 	*tmp++ = L'n';
 	*tmp++ = L'i';
 
-	if (argc > 1) {
-		code = SetEnvironmentVariable(L"CHERE_INVOKING", L"1");
-		if (code == 0) {
-			ShowLastError(L"Could not set environment variable");
-		}
-	}
-
 	msystem = SetEnv(confpath);
 	if (msystem == NULL) {
 		ShowError(L"Did not find the MSYSTEM variable", confpath, 0);
@@ -206,14 +218,68 @@ int wmain(int argc, wchar_t* argv[]) {
 		ShowLastError(L"Could not set environment variable");
 	}
 
-	// can break, but hopefully won't for most use cases
 	args = GetCommandLine();
-	if (args[0] == L'"') {
-		args++;
+
+	// forward args
+	args = wcsstr(args, argv[0]) + wcslen(argv[0]);
+	if (*args == L'"') {
+		++args;
 	}
-	args += wcslen(argv[0]);
-	if (args[0] == L'"') {
-		args++;
+	while (*args == L' ') {
+		++args;
+	}
+
+	// extract workdir from -d option
+	if (argc > 2 && wcscmp(L"-d", argv[1]) == 0) {
+
+		// forward args
+		args = wcsstr(args, argv[1]) + wcslen(argv[1]);
+		while (*args == L' ') {
+			++args;
+		}
+
+		// extract workdir and strip begining and trailing quotes
+		tmp = argv[2];
+		if (*tmp == L'"') {
+			tmp++;
+		}
+		i = 0;
+		while (i < PATH_MAX && *tmp) {
+			workdir[i++] = (*tmp == L'/') ? L'\\' : *tmp;
+			++tmp;
+		}
+		if (i > 0 && (i == PATH_MAX || workdir[i-1] == L'"')) {
+			--i;
+		}
+		// strip trailing slash
+		if (!i && (workdir[i-1] == L'\\')) {
+			--i;
+		}
+		workdir[i] = L'\0';
+
+		if (!*workdir) {
+			ShowError(L"Working directory not specified", argv[2], 0);
+			return __LINE__;
+		}
+		
+		// forward args
+		args = wcsstr(args, argv[2]) + wcslen(argv[2]);
+		if (*args == L'"') {
+			args++;
+		}
+		while (*args == L' ') {
+			++args;
+		}
+
+	} else {
+		*workdir = L'\0';
+	}
+
+	if ((argc > 1 && !*workdir) || (argc > 3 && *workdir)) {
+		code = SetEnvironmentVariable(L"CHERE_INVOKING", L"1");
+		if (code == 0) {
+			ShowLastError(L"Could not set environment variable");
+		}
 	}
 
 	code = -1;
@@ -225,16 +291,30 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%s\\usr\\bin\\mintty.exe -i '%s' -o 'AppLaunchCmd=%s' -o 'AppID=MSYS2.Shell.%s.%d' -o 'AppName=MSYS2 %s Shell' -t 'MSYS2 %s Shell' --store-taskbar-properties -- %s %s", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
+		code = swprintf(buf, buflen, cmdline,
+			msysdir,
+			exepath,
+			exepath,
+			msystem,
+			APPID_REVISION,
+			msystem,
+			msystem,
+			(argc == 1 || (argc == 3 && *workdir)) ? cmdargs[0] : cmdargs[1],
+			args
+		);
 		buflen *= 2;
 	}
 	if (code < 0) {
 		ShowErrno(L"Could not write to buffer");
+		free(buf);
+		buf = NULL;
 		return __LINE__;
 	}
 
-	child = StartChild(buf);
+	child = StartChild(buf, *workdir ? workdir : NULL);
 	if (child.hProcess == NULL) {
+		free(buf);
+		buf = NULL;
 		return __LINE__;
 	}
 
