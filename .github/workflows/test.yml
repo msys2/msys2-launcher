@@ -20,7 +20,7 @@ jobs:
       - name: Build
         shell: msys2 {0}
         run: |
-          makepkg -Csfri --noconfirm --nocheck
+          make PREFIX=/opt/bin/x86_64-w64-mingw32-
 
       - name: Upload
         uses: actions/upload-artifact@v2
