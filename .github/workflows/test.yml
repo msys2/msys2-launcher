@@ -15,7 +15,7 @@ jobs:
         with:
           msystem: MSYS
           update: true
-          install: msys2-devel base-devel
+          install: msys2-devel base-devel mingw-w64-cross-gcc
 
       - name: Build
         shell: msys2 {0}
