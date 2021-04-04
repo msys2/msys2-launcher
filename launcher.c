@@ -39,6 +39,22 @@ static void ShowErrno(const wchar_t* desc) {
 	ShowError(desc, err, errno);
 }
 
+// adapted from http://www.partow.net/programming/hashfunctions/index.html
+// MIT licensed
+static unsigned int APHash(const wchar_t* str, size_t length) {
+	unsigned int hash = 0xAAAAAAAA;
+	size_t i = 0;
+
+	for (i = 0; i < length; ++str, ++i) {
+		hash ^= ((i & 1) == 0)
+			? ((hash <<  7) ^ (*str) * (hash >> 3))
+			: (~((hash << 11) + ((*str) ^ (hash >> 5))))
+		;
+	}
+
+	return hash;
+}
+
 static PROCESS_INFORMATION StartChild(wchar_t* cmdline) {
 	STARTUPINFOW si;
 	PROCESS_INFORMATION pi;
@@ -151,6 +167,7 @@ int wmain(int argc, wchar_t* argv[]) {
 	wchar_t* tmp;
 	wchar_t* args;
 	wchar_t* msystem;
+	wchar_t* msysdirhash;
 	wchar_t msysdir[PATH_MAX];
 	wchar_t exepath[PATH_MAX];
 	wchar_t confpath[PATH_MAX];
@@ -177,6 +194,21 @@ int wmain(int argc, wchar_t* argv[]) {
 		return __LINE__;
 	}
 	*tmp = L'\0';
+
+	msysdirhash = (wchar_t*)alloca(10 * sizeof(wchar_t)); // dot + unsigned int as %x + null
+	if (msysdirhash == NULL) {
+		ShowError(L"Could not allocate memory", L"", 0);
+		return __LINE__;
+	}
+	if (wcsicmp(msysdir, L"C:\\msys64") == 0) {
+		code = swprintf(msysdirhash, 10, L""); // no change in AppID for default installations
+	} else {
+		code = swprintf(msysdirhash, 10, L".%8x", APHash(msysdir, wcslen(msysdir)));
+	}
+	if (code < 0) {
+		ShowErrno(L"Could not write to buffer");
+		return __LINE__;
+	}
 
 	wcscpy(confpath, exepath);
 	tmp = confpath + wcslen(confpath) - 4;
@@ -226,7 +258,7 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%ls\\usr\\bin\\mintty.exe -i '%ls' -o 'AppLaunchCmd=%ls' -o 'AppID=MSYS2.Shell.%ls.%d' -o 'AppName=MSYS2 %ls Shell' -t 'MSYS2 %ls Shell' --store-taskbar-properties -- %ls %ls", msysdir, exepath, exepath, msystem, APPID_REVISION, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
+		code = swprintf(buf, buflen, L"%ls\\usr\\bin\\mintty.exe -i '%ls' -o 'AppLaunchCmd=%ls' -o 'AppID=MSYS2.Shell.%ls.%d%ls' -o 'AppName=MSYS2 %ls Shell' -t 'MSYS2 %ls Shell' --store-taskbar-properties -- %ls %ls", msysdir, exepath, exepath, msystem, APPID_REVISION, msysdirhash, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
 		buflen *= 2;
 	}
 	if (code < 0) {
