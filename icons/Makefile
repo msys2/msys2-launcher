@@ -1,4 +1,4 @@
-all: ../msys2.ico ../mingw32.ico ../mingw64.ico ../clang64.ico ../ucrt64.ico
+all: ../msys2.ico ../mingw32.ico ../mingw64.ico ../ucrt64.ico ../clang64.ico
 
 sources=icon-large.svg icon-medium.svg icon-small.svg
 
@@ -11,8 +11,8 @@ sources=icon-large.svg icon-medium.svg icon-small.svg
 ../mingw64.ico: $(sources)
 	./build.sh '#276597' $@
 
-../clang64.ico: $(sources)
-	./build.sh '#be643e' $@
-
 ../ucrt64.ico: $(sources)
 	./build.sh '#8b7b16' $@
+
+../clang64.ico: $(sources)
+	./build.sh '#be643e' $@
