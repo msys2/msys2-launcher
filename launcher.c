@@ -235,13 +235,23 @@ int wmain(int argc, wchar_t* argv[]) {
 		ShowLastError(L"Could not set environment variable");
 	}
 
-	// can break, but hopefully won't for most use cases
 	args = GetCommandLine();
-	if (args[0] == L'"') {
+	tmp = argv[0];
+	while (*tmp != L'\0') {
+		if (*args == *tmp) {
+			args++;
+			tmp++;
+		} else if (*args == L'"') {
+			args++;
+		} else {
+			ShowError(L"Could not parse command name", argv[0], 0);
+			return __LINE__;
+		}
+	}
+	while (*args == L'"') {
 		args++;
 	}
-	args += wcslen(argv[0]);
-	if (args[0] == L'"') {
+	while (*args == L' ') {
 		args++;
 	}
 
