@@ -172,18 +172,14 @@ int wmain(int argc, wchar_t* argv[]) {
 	wchar_t exepath[PATH_MAX];
 	wchar_t confpath[PATH_MAX];
 
-	code = GetModuleFileName(NULL, exepath, sizeof(exepath) / sizeof(exepath[0]));
+	code = GetModuleFileName(NULL, exepath, sizeof(exepath) / sizeof(*exepath));
 	if (code == 0) {
 		ShowLastError(L"Could not determine executable path");
 		return __LINE__;
 	}
 
 	tmp = exepath;
-	while (true) {
-		tmp = wcschr(tmp, L'/');
-		if (tmp == NULL) {
-			break;
-		}
+	while ((tmp = wcschr(tmp, L'/')) != NULL) {
 		*tmp = L'\\';
 	}
 
@@ -212,7 +208,7 @@ int wmain(int argc, wchar_t* argv[]) {
 
 	wcscpy(confpath, exepath);
 	tmp = confpath + wcslen(confpath) - 4;
-	if (0 != wcsicmp(L".exe", tmp)) {
+	if (wcsicmp(L".exe", tmp) != 0) {
 		ShowError(L"Could not find configuration file", confpath, 0);
 		return __LINE__;
 	}
