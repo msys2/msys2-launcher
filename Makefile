@@ -1,6 +1,6 @@
 PREFIX=
 
-all: msys2.exe msys2.ini mingw32.exe mingw32.ini mingw64.exe mingw64.ini ucrt64.exe ucrt64.ini clang64.exe clang64.ini clang32.exe clang32.ini clangarm64.exe clangarm64.ini
+all: msys2.exe msys2.ini mingw32.exe mingw32.ini mingw64.exe mingw64.ini ucrt64.exe ucrt64.ini clang64.exe clang64.ini clangarm64.exe clangarm64.ini
 
 .PHONY: all
 
@@ -42,14 +42,6 @@ clang64.ini: launcher.ini
 clang64.res: launcher.rc clang64.ico
 	$(PREFIX)windres -O COFF -o $@ $< -DMSYSTEM=CLANG64 -DICONFILE=clang64.ico
 clang64.exe: launcher.c clang64.res
-	$(PREFIX)gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^
-
-clang32.ini: launcher.ini
-	cp -f $^ $@
-	echo MSYSTEM=CLANG32>> $@
-clang32.res: launcher.rc clang32.ico
-	$(PREFIX)windres -O COFF -o $@ $< -DMSYSTEM=CLANG32 -DICONFILE=clang32.ico
-clang32.exe: launcher.c clang32.res
 	$(PREFIX)gcc -std=c11 -Wall -Wextra -Werror -static -municode -mwindows -o $@ $^
 
 clangarm64.ini: launcher.ini
