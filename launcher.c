@@ -171,6 +171,7 @@ int wmain(int argc, wchar_t* argv[]) {
 	wchar_t msysdir[PATH_MAX];
 	wchar_t exepath[PATH_MAX];
 	wchar_t confpath[PATH_MAX];
+	wchar_t ttyrcpath[PATH_MAX];
 
 	code = GetModuleFileName(NULL, exepath, sizeof(exepath) / sizeof(*exepath));
 	if (code == 0) {
@@ -216,6 +217,17 @@ int wmain(int argc, wchar_t* argv[]) {
 	*tmp++ = L'i';
 	*tmp++ = L'n';
 	*tmp++ = L'i';
+
+	wcscpy(ttyrcpath, exepath);
+	tmp = ttyrcpath + wcslen(ttyrcpath) - 4;
+	if (wcsicmp(L".exe", tmp) != 0) {
+		ShowError(L"Could not find minttyrc file", ttyrcpath, 0);
+		return __LINE__;
+	}
+	*tmp++ = L'.';
+	*tmp++ = L't';
+	*tmp++ = L't';
+	*tmp++ = L'y';
 
 	if (argc > 1) {
 		code = SetEnvironmentVariable(L"CHERE_INVOKING", L"1");
@@ -264,7 +276,8 @@ int wmain(int argc, wchar_t* argv[]) {
 			ShowError(L"Could not allocate memory", L"", 0);
 			return __LINE__;
 		}
-		code = swprintf(buf, buflen, L"%ls\\usr\\bin\\mintty.exe -i '%ls' -o 'AppLaunchCmd=%ls' -o 'AppID=MSYS2.Shell.%ls.%d%ls' -o 'AppName=MSYS2 %ls Shell' -t 'MSYS2 %ls Shell' --store-taskbar-properties -- %ls %ls", msysdir, exepath, exepath, msystem, APPID_REVISION, msysdirhash, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
+		code = swprintf(buf, buflen, L"%ls\\usr\\bin\\mintty.exe -c '%ls' -i '%ls' -o 'AppLaunchCmd=%ls' -o 'AppID=MSYS2.Shell.%ls.%d%ls' -o 'AppName=MSYS2 %ls Shell' -t 'MSYS2 %ls Shell' --store-taskbar-properties -- %ls %ls", 
+										msysdir, ttyrcpath, exepath, exepath, msystem, APPID_REVISION, msysdirhash, msystem, msystem, argc == 1 ? L"-" : L"/usr/bin/sh -lc '\"$@\"' sh", args);
 		buflen *= 2;
 	}
 	if (code < 0) {
